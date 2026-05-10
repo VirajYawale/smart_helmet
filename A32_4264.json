@@ -1,0 +1,402 @@
+[
+    {
+        "id": "133e5704bc85d616",
+        "type": "tab",
+        "label": "Smart Helmet Monitor",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "93f14ae841c525fd",
+        "type": "comment",
+        "z": "133e5704bc85d616",
+        "name": "SECTION 1 — MQTT INPUT",
+        "x": 200,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "290b7c2a34bc160c",
+        "type": "mqtt in",
+        "z": "133e5704bc85d616",
+        "name": "MQTT — Live Telemetry",
+        "topic": "smarthelmet/telemetry",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "broker1",
+        "inputs": 0,
+        "x": 170,
+        "y": 100,
+        "wires": [
+            [
+                "fcf1c8f78a58ace8"
+            ]
+        ]
+    },
+    {
+        "id": "439a6a1c72cba328",
+        "type": "mqtt in",
+        "z": "133e5704bc85d616",
+        "name": "MQTT — Accident Alert",
+        "topic": "smarthelmet/accident",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "broker1",
+        "inputs": 0,
+        "x": 430,
+        "y": 100,
+        "wires": [
+            [
+                "930dba82595073ff"
+            ]
+        ]
+    },
+    {
+        "id": "0d7eace12bb3bcd3",
+        "type": "mqtt in",
+        "z": "133e5704bc85d616",
+        "name": "MQTT — Device Status",
+        "topic": "smarthelmet/status",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "broker1",
+        "inputs": 0,
+        "x": 690,
+        "y": 100,
+        "wires": [
+            [
+                "aface0c28a976adc"
+            ]
+        ]
+    },
+    {
+        "id": "aface0c28a976adc",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "Device Status",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 700,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "fcf1c8f78a58ace8",
+        "type": "json",
+        "z": "133e5704bc85d616",
+        "name": "Parse Telemetry JSON",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 190,
+        "y": 200,
+        "wires": [
+            [
+                "6f9b763c9eafeb6d",
+                "fbfa310ea10ce85e"
+            ]
+        ]
+    },
+    {
+        "id": "930dba82595073ff",
+        "type": "json",
+        "z": "133e5704bc85d616",
+        "name": "Parse Accident JSON",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 450,
+        "y": 200,
+        "wires": [
+            [
+                "2abad683e80765c6",
+                "c098964b82a5aab4"
+            ]
+        ]
+    },
+    {
+        "id": "fbfa310ea10ce85e",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "Live Sensor Data",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 460,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "c098964b82a5aab4",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "Full Accident from MQTT",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 720,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "6f9b763c9eafeb6d",
+        "type": "function",
+        "z": "133e5704bc85d616",
+        "name": "Accident Detection Logic",
+        "func": "var accel     = msg.payload.acceleration || 0;\nvar tilt      = msg.payload.tilt_angle   || 0;\nvar vibration = msg.payload.vibration    || 0;\nvar pressure  = msg.payload.pressure     || 0;\nvar latitude  = msg.payload.latitude     || 21.145800;\nvar longitude = msg.payload.longitude    || 79.088200;\n\nvar highAccel = accel > 2.5;\nvar highTilt  = tilt  > 60.0;\nvar vibHit    = vibration === 1;\nvar accident  = highAccel && highTilt && vibHit;\n\nvar severity = 'NORMAL';\nif (accident) {\n    severity = accel > 4.0 ? 'HIGH' : 'MEDIUM';\n}\n\nmsg.payload = {\n    acceleration : accel,\n    tilt_angle   : tilt,\n    vibration    : vibration,\n    pressure     : pressure,\n    latitude     : latitude,\n    longitude    : longitude,\n    accident     : accident,\n    severity     : severity,\n    maps_link    : 'https://maps.google.com/?q=' + latitude + ',' + longitude,\n    device_id    : msg.payload.device_id || 'SmartHelmet_Arduino',\n    frame        : msg.payload.frame     || 0\n};\n\nmsg.accident = accident;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 220,
+        "y": 320,
+        "wires": [
+            [
+                "8d27dd8820386678"
+            ]
+        ]
+    },
+    {
+        "id": "2abad683e80765c6",
+        "type": "function",
+        "z": "133e5704bc85d616",
+        "name": "Handle Accident Alert",
+        "func": "var p = msg.payload;\nvar lat = p.latitude  || 21.145800;\nvar lng = p.longitude || 79.088200;\n\nmsg.payload = {\n    acceleration : p.acceleration || 0,\n    tilt_angle   : p.tilt_angle   || 0,\n    vibration    : 1,\n    pressure     : p.pressure     || 0,\n    latitude     : lat,\n    longitude    : lng,\n    accident     : true,\n    severity     : p.severity     || 'HIGH',\n    device_id    : p.device_id    || 'SmartHelmet_Arduino',\n    maps_link    : 'https://maps.google.com/?q=' + lat + ',' + lng,\n    message      : 'ACCIDENT DETECTED - Emergency Alert'\n};\nmsg.accident = true;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 570,
+        "y": 320,
+        "wires": [
+            [
+                "3ac742a9882e9bae",
+                "5b12fafd0fa9f540"
+            ]
+        ]
+    },
+    {
+        "id": "8d27dd8820386678",
+        "type": "switch",
+        "z": "133e5704bc85d616",
+        "name": "Accident?",
+        "property": "accident",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "true"
+            },
+            {
+                "t": "false"
+            }
+        ],
+        "checkall": "false",
+        "repair": false,
+        "outputs": 2,
+        "x": 300,
+        "y": 460,
+        "wires": [
+            [
+                "3ac742a9882e9bae",
+                "5b12fafd0fa9f540",
+                "d2731c88c6d622d9"
+            ],
+            [
+                "3ac742a9882e9bae",
+                "8305f973afe7216c"
+            ]
+        ]
+    },
+    {
+        "id": "5b12fafd0fa9f540",
+        "type": "function",
+        "z": "133e5704bc85d616",
+        "name": "Build Alarm Payload",
+        "func": "var p = msg.payload;\nvar lat = p.latitude  || 21.145800;\nvar lng = p.longitude || 79.088200;\n\n// ThingsBoard Create Alarm API payload\nmsg.alarm = {\n    type     : 'Accident Detected',\n    severity : p.acceleration > 4.0 ? 'CRITICAL' : 'MAJOR',\n    status   : 'ACTIVE_UNACK',\n    details  : {\n        acceleration : p.acceleration,\n        tilt_angle   : p.tilt_angle,\n        vibration    : p.vibration,\n        pressure     : p.pressure,\n        latitude     : lat,\n        longitude    : lng,\n        maps_link    : 'https://maps.google.com/?q=' + lat + ',' + lng,\n        severity     : p.severity,\n        device_id    : p.device_id || 'SmartHelmet_Arduino'\n    }\n};\n\nmsg.payload = msg.alarm;\n\nmsg.headers = {\n    'Content-Type'  : 'application/json',\n    'X-Authorization': 'Bearer YOUR_JWT_TOKEN_HERE'\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 620,
+        "y": 460,
+        "wires": [
+            [
+                "ab926045cc51930e"
+            ]
+        ]
+    },
+    {
+        "id": "ab926045cc51930e",
+        "type": "http request",
+        "z": "133e5704bc85d616",
+        "name": "Create TB Alarm",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "https://thingsboard.cloud/api/alarm",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 860,
+        "y": 460,
+        "wires": [
+            [
+                "b4f3f4d53f917dfe"
+            ]
+        ]
+    },
+    {
+        "id": "b4f3f4d53f917dfe",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "Alarm API Response",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 1080,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "d2731c88c6d622d9",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "Accident Payload",
+        "active": true,
+        "tosidebar": true,
+        "tostatus": true,
+        "complete": "payload.severity",
+        "targetType": "msg",
+        "x": 560,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "8305f973afe7216c",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "Normal Riding",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 560,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "3ac742a9882e9bae",
+        "type": "function",
+        "z": "133e5704bc85d616",
+        "name": "POST to ThingsBoard (https)",
+        "func": "var https = context.get('https');\nvar p = msg.payload;\n\nvar data;\nif (p.accident === true) {\n    data = JSON.stringify({\n        acceleration : p.acceleration || 4.52,\n        tilt_angle   : p.tilt_angle   || 88.7,\n        vibration    : 1,\n        pressure     : p.pressure     || 870,\n        latitude     : p.latitude     || 21.145800,\n        longitude    : p.longitude    || 79.088200,\n        accident     : true,\n        severity     : p.severity     || 'HIGH',\n        maps_link    : 'https://maps.google.com/?q=' + (p.latitude||21.145800) + ',' + (p.longitude||79.088200)\n    });\n} else {\n    data = JSON.stringify({\n        acceleration : p.acceleration || 1.02,\n        tilt_angle   : p.tilt_angle   || 5.3,\n        vibration    : p.vibration    || 0,\n        pressure     : p.pressure     || 300,\n        latitude     : p.latitude     || 21.145800,\n        longitude    : p.longitude    || 79.088200,\n        accident     : false,\n        severity     : 'NORMAL',\n        maps_link    : 'https://maps.google.com/?q=' + (p.latitude||21.145800) + ',' + (p.longitude||79.088200)\n    });\n}\n\nvar options = {\n    hostname           : 'thingsboard.cloud',\n    port               : 443,\n    path               : '/api/v1/ytavwytpxn2jcnylxbvf/telemetry',\n    method             : 'POST',\n    rejectUnauthorized : false,\n    headers            : {\n        'Content-Type'   : 'application/json',\n        'Content-Length' : Buffer.byteLength(data)\n    }\n};\n\nvar req = https.request(options, function(res) {\n    var body = '';\n    res.on('data', function(chunk) { body += chunk; });\n    res.on('end',  function() {\n        node.send({ payload: 'ThingsBoard OK: ' + res.statusCode + ' — ' + body });\n    });\n});\n\nreq.on('error', function(e) {\n    node.send({ payload: 'ThingsBoard ERROR: ' + e.message });\n});\n\nreq.write(data);\nreq.end();\nreturn null;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "context.set('https', global.get('require')('https'));",
+        "finalize": "",
+        "libs": [],
+        "x": 320,
+        "y": 700,
+        "wires": [
+            [
+                "f39277530443b7a5"
+            ]
+        ]
+    },
+    {
+        "id": "f39277530443b7a5",
+        "type": "debug",
+        "z": "133e5704bc85d616",
+        "name": "ThingsBoard Response",
+        "active": true,
+        "tosidebar": true,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 610,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "2025f7e8f26c600a",
+        "type": "inject",
+        "z": "133e5704bc85d616",
+        "name": "TEST — Normal Riding",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "{\"acceleration\":1.02,\"tilt_angle\":5.3,\"vibration\":0,\"pressure\":300,\"latitude\":21.145800,\"longitude\":79.088200,\"accident\":false,\"severity\":\"NORMAL\",\"frame\":1,\"device_id\":\"SmartHelmet_Arduino\"}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 820,
+        "wires": [
+            [
+                "6f9b763c9eafeb6d"
+            ]
+        ]
+    },
+    {
+        "id": "6a6ebb77ab180a8f",
+        "type": "inject",
+        "z": "133e5704bc85d616",
+        "name": "TEST — Accident",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "topic": "",
+        "payload": "{\"acceleration\":4.52,\"tilt_angle\":88.7,\"vibration\":1,\"pressure\":870,\"latitude\":21.145800,\"longitude\":79.088200,\"accident\":true,\"severity\":\"HIGH\",\"frame\":99,\"device_id\":\"SmartHelmet_Arduino\"}",
+        "payloadType": "json",
+        "x": 460,
+        "y": 820,
+        "wires": [
+            [
+                "6f9b763c9eafeb6d"
+            ]
+        ]
+    },
+    {
+        "id": "broker1",
+        "type": "mqtt-broker",
+        "name": "broker.hivemq.com",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "nodered_smarthelmet_client",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]
